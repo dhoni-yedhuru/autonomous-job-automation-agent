@@ -75,3 +75,30 @@ def get_candidate(
         return {"error": "Candidate not found"}
 
     return candidate
+
+@app.put("/candidates/{candidate_id}")
+def update_candidate(
+    candidate_id: int,
+    candidate: CandidateCreate,
+    db: Session = Depends(get_db)
+):
+    existing_candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id
+    ).first()
+
+    if not existing_candidate:
+        return {"error": "Candidate not found"}
+
+    existing_candidate.full_name = candidate.full_name
+    existing_candidate.email = candidate.email
+    existing_candidate.phone = candidate.phone
+    existing_candidate.location = candidate.location
+    existing_candidate.experience_years = candidate.experience_years
+    existing_candidate.target_titles = candidate.target_titles
+    existing_candidate.skills = candidate.skills
+    existing_candidate.master_resume = candidate.master_resume
+
+    db.commit()
+    db.refresh(existing_candidate)
+
+    return existing_candidate
