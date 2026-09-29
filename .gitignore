@@ -1,0 +1,19 @@
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+
+# Environment / secrets
+.env
+.env.*
+
+# Next.js
+frontend/node_modules/
+frontend/.next/
+
+# Generated files
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
