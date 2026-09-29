@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
-from models import Candidate
+from models import Candidate, Job
 
 app = FastAPI(title="Autonomous Job Automation Agent")
 
@@ -102,3 +102,40 @@ def update_candidate(
     db.refresh(existing_candidate)
 
     return existing_candidate
+
+class JobCreate(BaseModel):
+    title: str
+    company: str
+    location: str | None = None
+    job_url: str | None = None
+    source: str | None = None
+    description: str | None = None
+    required_skills: str | None = None
+    salary: str | None = None
+    work_mode: str | None = None
+    posted_date: str | None = None
+    status: str = "new"
+    match_score: int = 0
+
+
+@app.post("/jobs")
+def create_job(
+    job: JobCreate,
+    db: Session = Depends(get_db)
+):
+    new_job = Job(**job.model_dump())
+
+    db.add(new_job)
+    db.commit()
+    db.refresh(new_job)
+
+    return new_job
+
+
+@app.get("/jobs")
+def get_jobs(
+    db: Session = Depends(get_db)
+):
+    jobs = db.query(Job).order_by(Job.id.desc()).all()
+
+    return jobs

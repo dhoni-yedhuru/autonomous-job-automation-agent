@@ -14,3 +14,20 @@ class Candidate(Base):
     target_titles = Column(Text)
     skills = Column(Text)
     master_resume = Column(Text)
+
+class Job(Base):
+    __tablename__ = "jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    company = Column(String(200), nullable=False)
+    location = Column(String(200))
+    job_url = Column(String(500))
+    source = Column(String(100))
+    description = Column(Text)
+    required_skills = Column(Text)
+    salary = Column(String(100))
+    work_mode = Column(String(50))
+    posted_date = Column(String(50))
+    status = Column(String(50), default="new")
+    match_score = Column(Integer, default=0)

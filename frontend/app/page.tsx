@@ -14,17 +14,41 @@ type Candidate = {
   master_resume: string | null;
 };
 
+type Job = {
+  id: number;
+  title: string;
+  company: string;
+  location: string | null;
+  job_url: string | null;
+  source: string | null;
+  description: string | null;
+  required_skills: string | null;
+  salary: string | null;
+  work_mode: string | null;
+  posted_date: string | null;
+  status: string;
+  match_score: number;
+};
+
 export default function Home() {
   const [candidate, setCandidate] = useState<Candidate | null>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/candidates/3")
-      .then((response) => response.json())
-      .then((data) => {
-        setCandidate(data);
+    Promise.all([
+      fetch("http://127.0.0.1:8000/candidates/3").then((res) =>
+        res.json()
+      ),
+      fetch("http://127.0.0.1:8000/jobs").then((res) =>
+        res.json()
+      ),
+    ])
+      .then(([candidateData, jobsData]) => {
+        setCandidate(candidateData);
+        setJobs(jobsData);
         setLoading(false);
       })
       .catch(() => {
@@ -81,7 +105,7 @@ export default function Home() {
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-50 p-10">
-        <p>Loading candidate...</p>
+        <p>Loading dashboard...</p>
       </main>
     );
   }
@@ -98,22 +122,30 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50 p-10">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto max-w-6xl">
+
         <h1 className="text-3xl font-bold">
           Autonomous Job Automation Agent
         </h1>
 
         <p className="mt-2 text-gray-600">
-          Candidate Profile
+          Candidate Dashboard
         </p>
 
-        <div className="mt-8 rounded-xl bg-white p-6 shadow">
-          <div className="grid gap-5 md:grid-cols-2">
+        {/* Candidate Profile */}
+
+        <section className="mt-8 rounded-xl bg-white p-6 shadow">
+          <h2 className="text-2xl font-semibold">
+            Candidate Profile
+          </h2>
+
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
 
             <div>
               <label className="font-medium">
                 Full Name
               </label>
+
               <input
                 className="mt-2 w-full rounded-lg border p-3"
                 value={candidate.full_name}
@@ -127,6 +159,7 @@ export default function Home() {
               <label className="font-medium">
                 Email
               </label>
+
               <input
                 type="email"
                 className="mt-2 w-full rounded-lg border p-3"
@@ -141,6 +174,7 @@ export default function Home() {
               <label className="font-medium">
                 Phone
               </label>
+
               <input
                 className="mt-2 w-full rounded-lg border p-3"
                 value={candidate.phone ?? ""}
@@ -154,6 +188,7 @@ export default function Home() {
               <label className="font-medium">
                 Location
               </label>
+
               <input
                 className="mt-2 w-full rounded-lg border p-3"
                 value={candidate.location ?? ""}
@@ -167,6 +202,7 @@ export default function Home() {
               <label className="font-medium">
                 Experience (Years)
               </label>
+
               <input
                 type="number"
                 min="0"
@@ -185,6 +221,7 @@ export default function Home() {
               <label className="font-medium">
                 Target Job Titles
               </label>
+
               <input
                 className="mt-2 w-full rounded-lg border p-3"
                 value={candidate.target_titles ?? ""}
@@ -198,6 +235,7 @@ export default function Home() {
               <label className="font-medium">
                 Skills
               </label>
+
               <textarea
                 className="mt-2 w-full rounded-lg border p-3"
                 rows={3}
@@ -212,18 +250,21 @@ export default function Home() {
               <label className="font-medium">
                 Master Resume
               </label>
+
               <textarea
                 className="mt-2 w-full rounded-lg border p-3"
-                rows={10}
+                rows={8}
                 value={candidate.master_resume ?? ""}
                 onChange={(e) =>
                   handleChange("master_resume", e.target.value)
                 }
               />
             </div>
+
           </div>
 
           <div className="mt-6 flex items-center gap-4">
+
             <button
               onClick={handleSave}
               disabled={saving}
@@ -237,8 +278,131 @@ export default function Home() {
                 {message}
               </p>
             )}
+
           </div>
-        </div>
+        </section>
+
+        {/* Jobs */}
+
+        <section className="mt-8">
+
+          <h2 className="text-2xl font-semibold">
+            Jobs
+          </h2>
+
+          <p className="mt-2 text-gray-600">
+            Jobs currently stored in the system
+          </p>
+
+          {jobs.length === 0 ? (
+            <div className="mt-6 rounded-xl bg-white p-6 shadow">
+              <p>No jobs found.</p>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-5">
+
+              {jobs.map((job) => (
+                <div
+                  key={job.id}
+                  className="rounded-xl bg-white p-6 shadow"
+                >
+
+                  <div className="flex flex-col justify-between gap-4 md:flex-row">
+
+                    <div>
+
+                      <h3 className="text-xl font-semibold">
+                        {job.title}
+                      </h3>
+
+                      <p className="mt-1 font-medium text-gray-700">
+                        {job.company}
+                      </p>
+
+                      <div className="mt-3 space-y-1 text-sm text-gray-600">
+
+                        <p>
+                          <strong>Location:</strong>{" "}
+                          {job.location || "Not specified"}
+                        </p>
+
+                        <p>
+                          <strong>Work Mode:</strong>{" "}
+                          {job.work_mode || "Not specified"}
+                        </p>
+
+                        <p>
+                          <strong>Salary:</strong>{" "}
+                          {job.salary || "Not specified"}
+                        </p>
+
+                        <p>
+                          <strong>Source:</strong>{" "}
+                          {job.source || "Unknown"}
+                        </p>
+
+                        <p>
+                          <strong>Status:</strong>{" "}
+                          {job.status}
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    <div className="flex items-start">
+
+                      {job.job_url && (
+                        <a
+                          href={job.job_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-lg border px-4 py-2 font-medium hover:bg-gray-50"
+                        >
+                          View Job
+                        </a>
+                      )}
+
+                    </div>
+
+                  </div>
+
+                  {job.required_skills && (
+                    <div className="mt-5">
+
+                      <p className="font-medium">
+                        Required Skills
+                      </p>
+
+                      <p className="mt-1 text-gray-600">
+                        {job.required_skills}
+                      </p>
+
+                    </div>
+                  )}
+
+                  {job.description && (
+                    <div className="mt-5">
+
+                      <p className="font-medium">
+                        Description
+                      </p>
+
+                      <p className="mt-1 text-gray-600">
+                        {job.description}
+                      </p>
+
+                    </div>
+                  )}
+
+                </div>
+              ))}
+
+            </div>
+          )}
+
+        </section>
+
       </div>
     </main>
   );
