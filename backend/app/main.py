@@ -8,6 +8,7 @@ from models import Candidate, Job, Application
 from matching import calculate_match_score, analyze_match
 from job_discovery import search_jobs
 from job_analysis import analyze_job
+from resume_generator import generate_resume_content
 
 app = FastAPI(title="Autonomous Job Automation Agent")
 
@@ -288,6 +289,46 @@ def get_job_analysis(
     }
 
     return analyze_job(job_data)
+
+@app.get("/jobs/{job_id}/resume/{candidate_id}")
+def generate_job_resume(
+    job_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db)
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id
+    ).first()
+
+    if not candidate:
+        return {"error": "Candidate not found"}
+
+    job = db.query(Job).filter(
+        Job.id == job_id
+    ).first()
+
+    if not job:
+        return {"error": "Job not found"}
+
+    candidate_data = {
+        "full_name": candidate.full_name,
+        "email": candidate.email,
+        "phone": candidate.phone,
+        "location": candidate.location,
+        "skills": candidate.skills,
+        "master_resume": candidate.master_resume,
+    }
+
+    job_data = {
+        "title": job.title,
+        "company": job.company,
+        "required_skills": job.required_skills,
+    }
+
+    return generate_resume_content(
+        candidate_data,
+        job_data
+    )
     
 @app.get("/jobs")
 def get_jobs(
