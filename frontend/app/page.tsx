@@ -455,6 +455,28 @@ export default function Home() {
                       Generate LaTeX Resume
                     </button>
 
+                    <button
+                      onClick={async () => {
+                        const response = await fetch(
+                          `http://127.0.0.1:8000/jobs/${job.id}/pdf-resume/3`
+                        );
+
+                        const blob = await response.blob();
+
+                        const url = URL.createObjectURL(blob);
+
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = `${job.title.replace(/\s+/g, "_")}_Resume.pdf`;
+                        link.click();
+
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="rounded-lg bg-black px-4 py-2 font-medium text-white"
+                    >
+                      Generate PDF Resume
+                    </button>
+
                   </div>
 
                   {job.required_skills && (
