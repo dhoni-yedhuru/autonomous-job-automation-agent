@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import Candidate, Job
 from matching import calculate_match_score
+from job_discovery import search_jobs
 
 app = FastAPI(title="Autonomous Job Automation Agent")
 
@@ -132,7 +133,58 @@ def create_job(
 
     return new_job
 
+@app.post("/jobs/discover")
+def discover_jobs(
+    db: Session = Depends(get_db)
+):
+    discovered_jobs = search_jobs()
 
+    created_jobs = []
+
+    for job_data in discovered_jobs:
+        existing_job = db.query(Job).filter(
+            Job.job_url == job_data["job_url"]
+        ).first()
+
+        if existing_job:
+            continue
+
+        new_job = Job(
+            title=job_data["title"],
+            company=job_data["company"],
+            location=job_data["location"],
+            job_url=job_data["job_url"],
+            source=job_data["source"],
+            required_skills=job_data["required_skills"],
+            status="new"
+        )
+
+        db.add(new_job)
+        created_jobs.append(new_job)
+
+    db.commit()
+
+    for job in created_jobs:
+        db.refresh(job)
+
+    return {
+        "message": "Job discovery completed",
+        "new_jobs": len(created_jobs),
+        "jobs": [
+            {
+                "id": job.id,
+                "title": job.title,
+                "company": job.company,
+                "location": job.location,
+                "source": job.source,
+                "job_url": job.job_url,
+                "required_skills": job.required_skills,
+                "status": job.status
+            }
+            for job in created_jobs
+        ]
+    }
+    
 @app.get("/jobs")
 def get_jobs(
     db: Session = Depends(get_db)
