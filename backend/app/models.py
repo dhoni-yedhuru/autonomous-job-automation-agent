@@ -31,3 +31,13 @@ class Job(Base):
     posted_date = Column(String(50))
     status = Column(String(50), default="new")
     match_score = Column(Integer, default=0)
+    
+class Application(Base):
+    __tablename__ = "applications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    candidate_id = Column(Integer, nullable=False)
+    job_id = Column(Integer, nullable=False)
+    status = Column(String(50), default="saved")
+    applied_date = Column(String(50))
+    notes = Column(Text)

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
-from models import Candidate, Job
+from models import Candidate, Job, Application
 from matching import calculate_match_score, analyze_match
 from job_discovery import search_jobs
 from job_analysis import analyze_job
@@ -119,6 +119,86 @@ class JobCreate(BaseModel):
     posted_date: str | None = None
     status: str = "new"
     match_score: int = 0
+    
+    
+class ApplicationCreate(BaseModel):
+    candidate_id: int
+    job_id: int
+    status: str = "saved"
+    applied_date: str | None = None
+    notes: str | None = None
+
+@app.post("/applications")
+def create_application(
+    application: ApplicationCreate,
+    db: Session = Depends(get_db)
+):
+    existing_application = db.query(Application).filter(
+        Application.candidate_id == application.candidate_id,
+        Application.job_id == application.job_id
+    ).first()
+
+    if existing_application:
+        return {
+            "error": "Application already exists",
+            "application_id": existing_application.id
+        }
+
+    new_application = Application(
+        **application.model_dump()
+    )
+
+    db.add(new_application)
+    db.commit()
+    db.refresh(new_application)
+
+    return new_application
+
+@app.get("/applications")
+def get_applications(
+    db: Session = Depends(get_db)
+):
+    applications = db.query(Application).order_by(
+        Application.id.desc()
+    ).all()
+
+    return [
+        {
+            "id": application.id,
+            "candidate_id": application.candidate_id,
+            "job_id": application.job_id,
+            "status": application.status,
+            "applied_date": application.applied_date,
+            "notes": application.notes,
+        }
+        for application in applications
+    ]
+
+class ApplicationStatusUpdate(BaseModel):
+    status: str
+    notes: str | None = None
+
+
+@app.put("/applications/{application_id}")
+def update_application(
+    application_id: int,
+    application: ApplicationStatusUpdate,
+    db: Session = Depends(get_db)
+):
+    existing_application = db.query(Application).filter(
+        Application.id == application_id
+    ).first()
+
+    if not existing_application:
+        return {"error": "Application not found"}
+
+    existing_application.status = application.status
+    existing_application.notes = application.notes
+
+    db.commit()
+    db.refresh(existing_application)
+
+    return existing_application
 
 
 @app.post("/jobs")
