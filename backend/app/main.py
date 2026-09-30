@@ -137,9 +137,39 @@ def create_job(
 def get_jobs(
     db: Session = Depends(get_db)
 ):
+    candidate = db.query(Candidate).order_by(
+        Candidate.id.desc()
+    ).first()
+
     jobs = db.query(Job).order_by(Job.id.desc()).all()
 
-    return jobs
+    if candidate:
+        for job in jobs:
+            job.match_score = calculate_match_score(
+                candidate.skills,
+                job.required_skills
+            )
+
+        db.commit()
+
+    return [
+        {
+            "id": job.id,
+            "title": job.title,
+            "company": job.company,
+            "location": job.location,
+            "job_url": job.job_url,
+            "source": job.source,
+            "description": job.description,
+            "required_skills": job.required_skills,
+            "salary": job.salary,
+            "work_mode": job.work_mode,
+            "posted_date": job.posted_date,
+            "status": job.status,
+            "match_score": job.match_score
+        }
+        for job in jobs
+    ]
 
 @app.get("/jobs/{job_id}/match/{candidate_id}")
 def match_job(
