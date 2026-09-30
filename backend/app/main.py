@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from database import SessionLocal
 from models import Candidate, Job
-from matching import calculate_match_score
+from matching import calculate_match_score, analyze_match
 from job_discovery import search_jobs
 from job_analysis import analyze_job
 
@@ -267,12 +267,12 @@ def match_job(
     if not job:
         return {"error": "Job not found"}
 
-    score = calculate_match_score(
+    match_result = analyze_match(
         candidate.skills,
         job.required_skills
     )
 
-    job.match_score = score
+    job.match_score = match_result["match_score"]
 
     db.commit()
     db.refresh(job)
@@ -283,5 +283,5 @@ def match_job(
         "job_title": job.title,
         "candidate_skills": candidate.skills,
         "required_skills": job.required_skills,
-        "match_score": score
+        **match_result
     }

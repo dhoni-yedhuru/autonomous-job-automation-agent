@@ -22,3 +22,33 @@ def calculate_match_score(candidate_skills, required_skills):
     score = (len(matched_skills) / len(required_set)) * 100
 
     return round(score)
+
+
+def analyze_match(candidate_skills, required_skills):
+    candidate_set = {
+        skill.strip().lower()
+        for skill in (candidate_skills or "").split(",")
+        if skill.strip()
+    }
+
+    required_set = {
+        skill.strip().lower()
+        for skill in (required_skills or "").split(",")
+        if skill.strip()
+    }
+
+    matched_skills = sorted(candidate_set.intersection(required_set))
+    missing_skills = sorted(required_set - candidate_set)
+
+    score = 0
+
+    if required_set:
+        score = round(
+            (len(matched_skills) / len(required_set)) * 100
+        )
+
+    return {
+        "match_score": score,
+        "matched_skills": matched_skills,
+        "missing_skills": missing_skills,
+    }
