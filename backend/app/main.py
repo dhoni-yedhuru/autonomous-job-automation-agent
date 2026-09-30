@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -10,6 +12,8 @@ from job_discovery import search_jobs
 from job_analysis import analyze_job
 from resume_generator import generate_resume_content
 from latex_resume import generate_latex_resume
+
+from fastapi.responses import Response
 
 app = FastAPI(title="Autonomous Job Automation Agent")
 
@@ -377,6 +381,59 @@ def generate_job_latex_resume(
         "company": job.company,
         "latex": latex,
     }
+    
+@app.get("/jobs/{job_id}/pdf-resume/{candidate_id}")
+def generate_job_pdf_resume(
+    job_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db)
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id
+    ).first()
+
+    if not candidate:
+        return {"error": "Candidate not found"}
+
+    job = db.query(Job).filter(
+        Job.id == job_id
+    ).first()
+
+    if not job:
+        return {"error": "Job not found"}
+
+    candidate_data = {
+        "full_name": candidate.full_name,
+        "email": candidate.email,
+        "phone": candidate.phone,
+        "location": candidate.location,
+        "skills": candidate.skills,
+        "master_resume": candidate.master_resume,
+    }
+
+    job_data = {
+        "title": job.title,
+        "company": job.company,
+    }
+
+    latex = generate_latex_resume(
+        candidate_data,
+        job_data
+    )
+
+    from latex_resume import compile_latex_to_pdf
+
+    pdf_content = compile_latex_to_pdf(latex)
+
+    return Response(
+        content=pdf_content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{job.title.replace(" ", "_")}_Resume.pdf"'
+            )
+        }
+    )
     
 @app.get("/jobs")
 def get_jobs(
