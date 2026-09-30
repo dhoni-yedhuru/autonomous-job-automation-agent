@@ -31,6 +31,9 @@ type Job = {
 };
 
 export default function Home() {
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverMessage, setDiscoverMessage] = useState("");
+
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,6 +104,45 @@ export default function Home() {
       setSaving(false);
     }
   };
+
+  const handleDiscoverJobs = async () => {
+  setDiscovering(true);
+  setDiscoverMessage("");
+
+  try {
+    const response = await fetch(
+      "http://127.0.0.1:8000/jobs/discover",
+      {
+        method: "POST",
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setDiscoverMessage("Job discovery failed.");
+      return;
+    }
+
+    setDiscoverMessage(
+      `${data.new_jobs} new job(s) discovered.`
+    );
+
+    const jobsResponse = await fetch(
+      "http://127.0.0.1:8000/jobs"
+    );
+
+    const jobsData = await jobsResponse.json();
+
+    setJobs(jobsData);
+  } catch {
+    setDiscoverMessage(
+      "Could not connect to backend."
+    );
+  } finally {
+    setDiscovering(false);
+  }
+};
 
   if (loading) {
     return (
@@ -289,6 +331,22 @@ export default function Home() {
           <h2 className="text-2xl font-semibold">
             Jobs
           </h2>
+
+          <div className="mt-4 flex items-center gap-4">
+            <button
+              onClick={handleDiscoverJobs}
+              disabled={discovering}
+              className="rounded-lg bg-black px-5 py-3 font-medium text-white disabled:opacity-50"
+            >
+              {discovering ? "Discovering..." : "Discover Jobs"}
+            </button>
+
+            {discoverMessage && (
+              <p className="text-sm text-gray-600">
+                {discoverMessage}
+              </p>
+            )}
+          </div>
 
           <p className="mt-2 text-gray-600">
             Jobs currently stored in the system
