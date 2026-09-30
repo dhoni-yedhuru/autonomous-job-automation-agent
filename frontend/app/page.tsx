@@ -428,6 +428,33 @@ export default function Home() {
 
                     </div>
 
+
+                    <button
+                      onClick={async () => {
+                        const response = await fetch(
+                          `http://127.0.0.1:8000/jobs/${job.id}/latex-resume/3`
+                        );
+
+                        const data = await response.json();
+
+                        const blob = new Blob([data.latex], {
+                            type: "application/x-tex",
+                          });
+
+                          const url = URL.createObjectURL(blob);
+
+                          const link = document.createElement("a");
+                          link.href = url;
+                          link.download = `${job.title.replace(/\s+/g, "_")}_Resume.tex`;
+                          link.click();
+
+                          URL.revokeObjectURL(url);
+                      }}
+                      className="rounded-lg bg-black px-4 py-2 font-medium text-white"
+                    >
+                      Generate LaTeX Resume
+                    </button>
+
                   </div>
 
                   {job.required_skills && (

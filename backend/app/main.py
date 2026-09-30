@@ -9,6 +9,7 @@ from matching import calculate_match_score, analyze_match
 from job_discovery import search_jobs
 from job_analysis import analyze_job
 from resume_generator import generate_resume_content
+from latex_resume import generate_latex_resume
 
 app = FastAPI(title="Autonomous Job Automation Agent")
 
@@ -329,6 +330,53 @@ def generate_job_resume(
         candidate_data,
         job_data
     )
+    
+@app.get("/jobs/{job_id}/latex-resume/{candidate_id}")
+def generate_job_latex_resume(
+    job_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db)
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id
+    ).first()
+
+    if not candidate:
+        return {"error": "Candidate not found"}
+
+    job = db.query(Job).filter(
+        Job.id == job_id
+    ).first()
+
+    if not job:
+        return {"error": "Job not found"}
+
+    candidate_data = {
+        "full_name": candidate.full_name,
+        "email": candidate.email,
+        "phone": candidate.phone,
+        "location": candidate.location,
+        "skills": candidate.skills,
+        "master_resume": candidate.master_resume,
+    }
+
+    job_data = {
+        "title": job.title,
+        "company": job.company,
+    }
+
+    latex = generate_latex_resume(
+        candidate_data,
+        job_data
+    )
+
+    return {
+        "job_id": job.id,
+        "candidate_id": candidate.id,
+        "job_title": job.title,
+        "company": job.company,
+        "latex": latex,
+    }
     
 @app.get("/jobs")
 def get_jobs(
