@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from database import SessionLocal
 from models import Candidate, Job
+from matching import calculate_match_score
 
 app = FastAPI(title="Autonomous Job Automation Agent")
 
@@ -139,3 +140,42 @@ def get_jobs(
     jobs = db.query(Job).order_by(Job.id.desc()).all()
 
     return jobs
+
+@app.get("/jobs/{job_id}/match/{candidate_id}")
+def match_job(
+    job_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db)
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id
+    ).first()
+
+    if not candidate:
+        return {"error": "Candidate not found"}
+
+    job = db.query(Job).filter(
+        Job.id == job_id
+    ).first()
+
+    if not job:
+        return {"error": "Job not found"}
+
+    score = calculate_match_score(
+        candidate.skills,
+        job.required_skills
+    )
+
+    job.match_score = score
+
+    db.commit()
+    db.refresh(job)
+
+    return {
+        "candidate_id": candidate.id,
+        "job_id": job.id,
+        "job_title": job.title,
+        "candidate_skills": candidate.skills,
+        "required_skills": job.required_skills,
+        "match_score": score
+    }

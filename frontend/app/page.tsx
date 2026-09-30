@@ -346,6 +346,11 @@ export default function Home() {
                           {job.status}
                         </p>
 
+			<p>
+ 			 <strong>Match Score:</strong>{" "}
+  				{job.match_score}%
+			</p>
+				
                       </div>
 
                     </div>
