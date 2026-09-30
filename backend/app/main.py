@@ -7,6 +7,7 @@ from database import SessionLocal
 from models import Candidate, Job
 from matching import calculate_match_score
 from job_discovery import search_jobs
+from job_analysis import analyze_job
 
 app = FastAPI(title="Autonomous Job Automation Agent")
 
@@ -184,6 +185,29 @@ def discover_jobs(
             for job in created_jobs
         ]
     }
+    
+@app.get("/jobs/{job_id}/analysis")
+def get_job_analysis(
+    job_id: int,
+    db: Session = Depends(get_db)
+):
+    job = db.query(Job).filter(
+        Job.id == job_id
+    ).first()
+
+    if not job:
+        return {"error": "Job not found"}
+
+    job_data = {
+        "title": job.title,
+        "company": job.company,
+        "location": job.location,
+        "work_mode": job.work_mode,
+        "required_skills": job.required_skills,
+        "description": job.description,
+    }
+
+    return analyze_job(job_data)
     
 @app.get("/jobs")
 def get_jobs(
