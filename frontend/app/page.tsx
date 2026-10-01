@@ -439,24 +439,46 @@ export default function Home() {
 
                     {job.job_url && (
                         <button
-                          onClick={async () => {
-                            await fetch(
-                              "http://127.0.0.1:8000/automation/open-job",
+                        onClick={async () => {
+                          try {
+                            setMessage("Applying...");
+
+                            const response = await fetch(
+                              `http://127.0.0.1:8000/automation/apply-mock/${job.id}`,
                               {
                                 method: "POST",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                },
-                                body: JSON.stringify({
-                                  job_url: job.job_url,
-                                }),
                               }
                             );
-                          }}
-                          className="rounded-lg bg-black px-4 py-2 font-medium text-white"
-                        >
-                          Open Application
-                        </button>
+
+                            const data = await response.json();
+
+                            if (!response.ok) {
+                              throw new Error(
+                                data.detail || data.error || "Application failed"
+                              );
+                            }
+
+                            setMessage(data.message);
+
+                            const applicationsResponse = await fetch(
+                              "http://127.0.0.1:8000/applications"
+                            );
+
+                            const applicationsData = await applicationsResponse.json();
+
+                            setApplications(applicationsData);
+                          } catch (error) {
+                            setMessage(
+                              error instanceof Error
+                                ? error.message
+                                : "Application failed"
+                            );
+                          }
+                        }}
+                        className="rounded-lg bg-black px-4 py-2 font-medium text-white"
+                      >
+                        Apply Automatically
+                      </button>
                       )}
 
                     <button

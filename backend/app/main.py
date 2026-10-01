@@ -13,11 +13,15 @@ from job_analysis import analyze_job
 from resume_generator import generate_resume_content
 from latex_resume import generate_latex_resume
 
-from application_automation import open_application_page
+from application_automation import apply_to_mock_portal
+from mock_portal import router as mock_portal_router
+from datetime import datetime
 
 from fastapi.responses import Response
 
 app = FastAPI(title="Autonomous Job Automation Agent")
+
+app.include_router(mock_portal_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -91,14 +95,64 @@ class OpenJobRequest(BaseModel):
     job_url: str
 
 
-@app.post("/automation/open-job")
-def open_job_for_application(request: OpenJobRequest):
-    open_application_page(request.job_url)
+@app.post("/automation/apply-mock/{job_id}")
+def apply_mock_application(
+    job_id: int,
+    db: Session = Depends(get_db)
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == 3
+    ).first()
 
-    return {
-        "message": "Job application page opened successfully."
+    if not candidate:
+        return {"error": "Candidate not found"}
+
+    existing_application = db.query(Application).filter(
+        Application.candidate_id == candidate.id,
+        Application.job_id == job_id
+    ).first()
+
+    if existing_application:
+        return {
+            "message": "Application already exists",
+            "application_id": existing_application.id,
+            "status": existing_application.status,
+        }
+
+    candidate_data = {
+        "full_name": candidate.full_name,
+        "email": candidate.email,
+        "phone": candidate.phone,
+        "experience_years": candidate.experience_years,
+        "skills": candidate.skills,
     }
 
+    apply_to_mock_portal(
+        job_id,
+        candidate_data
+    )
+
+    new_application = Application(
+        candidate_id=candidate.id,
+        job_id=job_id,
+        status="applied",
+        applied_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        notes="Submitted through mock application portal",
+    )
+
+    db.add(new_application)
+    db.commit()
+    db.refresh(new_application)
+
+    return {
+        "message": "Application submitted and saved successfully",
+        "application_id": new_application.id,
+        "candidate_id": candidate.id,
+        "job_id": job_id,
+        "status": new_application.status,
+    }
+    
+    
 @app.put("/candidates/{candidate_id}")
 def update_candidate(
     candidate_id: int,
