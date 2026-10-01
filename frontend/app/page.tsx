@@ -42,6 +42,11 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
+
+  const [agentRunning, setAgentRunning] = useState(false);
+  const [agentMessage, setAgentMessage] = useState("");
+  const [agentResult, setAgentResult] = useState<any>(null);
+
   useEffect(() => {
     Promise.all([
       fetch("http://127.0.0.1:8000/candidates/3").then((res) =>
@@ -111,6 +116,53 @@ export default function Home() {
       setSaving(false);
     }
   };
+
+  const handleRunAgent = async () => {
+  setAgentRunning(true);
+  setAgentMessage("");
+  setAgentResult(null);
+
+  try {
+    const response = await fetch(
+      "http://127.0.0.1:8000/agent/run?candidate_id=3&recruiter_id=1",
+      {
+        method: "POST",
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail || data.error || "Agent run failed"
+      );
+    }
+
+    setAgentResult(data);
+
+    setAgentMessage(
+      `Agent completed: ${data.applications_submitted} application(s) submitted, ${data.applications_skipped} skipped.`
+    );
+
+    const [jobsResponse, applicationsResponse] =
+      await Promise.all([
+        fetch("http://127.0.0.1:8000/jobs"),
+        fetch("http://127.0.0.1:8000/applications"),
+      ]);
+
+    setJobs(await jobsResponse.json());
+    setApplications(await applicationsResponse.json());
+
+  } catch (error) {
+    setAgentMessage(
+      error instanceof Error
+        ? error.message
+        : "Agent run failed"
+    );
+  } finally {
+    setAgentRunning(false);
+  }
+};
 
   const handleDiscoverJobs = async () => {
   setDiscovering(true);
@@ -182,6 +234,32 @@ export default function Home() {
             Candidate Dashboard
           </p>
         </div>
+
+        <div className="mt-5 flex flex-wrap items-center gap-4">
+          <button
+            onClick={handleRunAgent}
+            disabled={agentRunning}
+            className="rounded-lg bg-black px-6 py-3 font-semibold text-white disabled:opacity-50"
+          >
+            {agentRunning
+              ? "Agent Running..."
+              : "Run Autonomous Agent"}
+          </button>
+
+          {agentMessage && (
+            <p className="text-sm text-gray-600">
+              {agentMessage}
+            </p>
+          )}
+        </div>
+
+              </div>
+
+      
+
+      {/* Candidate Profile */}
+
+      <section className="mt-8 rounded-xl bg-white p-6 shadow">
 
         {/* Candidate Profile */}
 
@@ -597,19 +675,22 @@ export default function Home() {
       </p>
     </div>
 
-    <div className="rounded-xl bg-white p-5 shadow">
-      <p className="text-sm text-gray-500">
-        Interviews
-      </p>
-      <p className="mt-2 text-3xl font-bold">
-        {applications.filter(
-          (application) => application.status === "interview"
-        ).length}
-      </p>
-    </div>
-  </div>
+  <div className="rounded-xl bg-white p-5 shadow">
+  <p className="text-sm text-gray-500">
+    Interviews
+  </p>
+
+  <p className="mt-2 text-3xl font-bold">
+    {applications.filter(
+      (application) => application.status === "interview"
+    ).length}
+  </p>
+</div>
+
+</div>
 </section>
-      </div>
-    </main>
-  );
+
+</div>
+</main>
+);
 }

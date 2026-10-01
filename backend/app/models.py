@@ -41,3 +41,46 @@ class Application(Base):
     status = Column(String(50), default="saved")
     applied_date = Column(String(50))
     notes = Column(Text)
+    
+class Recruiter(Base):
+    __tablename__ = "recruiters"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(150), nullable=False)
+    company = Column(String(200))
+    role = Column(String(200))
+    email = Column(String(200))
+    profile_url = Column(String(500))
+    source = Column(String(100))
+    status = Column(String(50), default="discovered")
+    notes = Column(Text)
+    
+class Outreach(Base):
+    __tablename__ = "outreach"
+
+    id = Column(Integer, primary_key=True, index=True)
+    candidate_id = Column(Integer, nullable=False)
+    recruiter_id = Column(Integer, nullable=False)
+    job_id = Column(Integer, nullable=False)
+
+    subject = Column(String(300))
+    body = Column(Text)
+
+    status = Column(String(50), default="draft")
+    sent_at = Column(String(50))
+    replied_at = Column(String(50))
+
+    notes = Column(Text)
+    
+class KnowledgeFact(Base):
+    __tablename__ = "knowledge_facts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    candidate_id = Column(Integer, nullable=False)
+
+    category = Column(String(100), nullable=False)
+    fact = Column(Text, nullable=False)
+
+    source = Column(String(200))
+    verified = Column(Integer, default=1)
+    notes = Column(Text)

@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
-from models import Candidate, Job, Application
+from models import Candidate, Job, Application, Recruiter, Outreach, KnowledgeFact
 from matching import calculate_match_score, analyze_match
 from job_discovery import search_jobs
 from job_analysis import analyze_job
@@ -16,6 +16,12 @@ from latex_resume import generate_latex_resume
 from application_automation import apply_to_mock_portal
 from mock_portal import router as mock_portal_router
 from datetime import datetime
+
+from outreach import generate_outreach_email
+
+from agent import run_agent
+
+from pydantic import BaseModel
 
 from fastapi.responses import Response
 
@@ -41,7 +47,24 @@ class CandidateCreate(BaseModel):
     skills: str | None = None
     master_resume: str | None = None
 
-
+class RecruiterCreate(BaseModel):
+    name: str
+    company: str | None = None
+    role: str | None = None
+    email: str | None = None
+    profile_url: str | None = None
+    source: str | None = None
+    status: str = "discovered"
+    notes: str | None = None
+    
+class KnowledgeFactCreate(BaseModel):
+    candidate_id: int
+    category: str
+    fact: str
+    source: str | None = None
+    verified: int = 1
+    notes: str | None = None
+    
 def get_db():
     db = SessionLocal()
     try:
@@ -578,4 +601,468 @@ def match_job(
         "candidate_skills": candidate.skills,
         "required_skills": job.required_skills,
         **match_result
+    }
+    
+    
+@app.post("/recruiters")
+def create_recruiter(
+    data: RecruiterCreate,
+    db: Session = Depends(get_db)
+):
+    recruiter = Recruiter(**data.model_dump())
+
+    db.add(recruiter)
+    db.commit()
+    db.refresh(recruiter)
+
+    return recruiter
+
+
+@app.get("/recruiters")
+def get_recruiters(
+    db: Session = Depends(get_db)
+):
+    return db.query(Recruiter).order_by(
+        Recruiter.id.desc()
+    ).all()
+
+@app.post("/outreach/generate")
+def generate_outreach(
+    candidate_id: int,
+    recruiter_id: int,
+    job_id: int,
+    db: Session = Depends(get_db)
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id
+    ).first()
+
+    recruiter = db.query(Recruiter).filter(
+        Recruiter.id == recruiter_id
+    ).first()
+
+    job = db.query(Job).filter(
+        Job.id == job_id
+    ).first()
+
+    if not candidate:
+        return {"error": "Candidate not found"}
+
+    if not recruiter:
+        return {"error": "Recruiter not found"}
+
+    if not job:
+        return {"error": "Job not found"}
+
+    candidate_data = {
+        "full_name": candidate.full_name,
+        "email": candidate.email,
+        "phone": candidate.phone,
+        "skills": candidate.skills,
+        "master_resume": candidate.master_resume,
+    }
+
+    recruiter_data = {
+        "name": recruiter.name,
+        "company": recruiter.company,
+        "email": recruiter.email,
+        "role": recruiter.role,
+    }
+
+    job_data = {
+        "title": job.title,
+        "company": job.company,
+        "location": job.location,
+        "required_skills": job.required_skills,
+    }
+
+    return generate_outreach_email(
+        candidate_data,
+        recruiter_data,
+        job_data
+    )
+    
+@app.post("/outreach/save")
+def save_outreach(
+    candidate_id: int,
+    recruiter_id: int,
+    job_id: int,
+    subject: str,
+    body: str,
+    db: Session = Depends(get_db)
+):
+    outreach = Outreach(
+        candidate_id=candidate_id,
+        recruiter_id=recruiter_id,
+        job_id=job_id,
+        subject=subject,
+        body=body,
+        status="draft"
+    )
+
+    db.add(outreach)
+    db.commit()
+    db.refresh(outreach)
+
+    return {
+        "message": "Outreach saved successfully",
+        "outreach_id": outreach.id,
+        "status": outreach.status
+    }
+
+
+@app.patch("/outreach/{outreach_id}/status")
+def update_outreach_status(
+    outreach_id: int,
+    status: str,
+    db: Session = Depends(get_db)
+):
+    outreach = db.query(Outreach).filter(
+        Outreach.id == outreach_id
+    ).first()
+
+    if not outreach:
+        return {"error": "Outreach not found"}
+
+    allowed_statuses = {
+        "draft",
+        "sent",
+        "delivered",
+        "replied",
+        "positive",
+        "negative",
+        "follow_up"
+    }
+
+    if status not in allowed_statuses:
+        return {
+            "error": "Invalid status",
+            "allowed_statuses": list(allowed_statuses)
+        }
+
+    outreach.status = status
+
+    if status == "sent":
+        outreach.sent_at = datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+    if status == "replied":
+        outreach.replied_at = datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+    db.commit()
+    db.refresh(outreach)
+
+    return {
+        "message": "Outreach status updated",
+        "outreach_id": outreach.id,
+        "status": outreach.status
+    }
+
+
+@app.get("/outreach")
+def get_outreach(
+    db: Session = Depends(get_db)
+):
+    return db.query(Outreach).order_by(
+        Outreach.id.desc()
+    ).all()
+    
+@app.post("/knowledge")
+def create_knowledge_fact(
+    data: KnowledgeFactCreate,
+    db: Session = Depends(get_db)
+):
+    fact = KnowledgeFact(**data.model_dump())
+
+    db.add(fact)
+    db.commit()
+    db.refresh(fact)
+
+    return fact
+
+
+@app.get("/knowledge/{candidate_id}")
+def get_knowledge_facts(
+    candidate_id: int,
+    db: Session = Depends(get_db)
+):
+    return db.query(KnowledgeFact).filter(
+        KnowledgeFact.candidate_id == candidate_id
+    ).order_by(
+        KnowledgeFact.id.desc()
+    ).all()
+    
+@app.post("/agent/run")
+def run_autonomous_agent(
+    candidate_id: int,
+    recruiter_id: int | None = None,
+    db: Session = Depends(get_db)
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id
+    ).first()
+
+    if not candidate:
+        return {"error": "Candidate not found"}
+
+    recruiter = None
+    recruiter_data = None
+
+    if recruiter_id:
+        recruiter = db.query(Recruiter).filter(
+            Recruiter.id == recruiter_id
+        ).first()
+
+        if recruiter:
+            recruiter_data = {
+                "name": recruiter.name,
+                "company": recruiter.company,
+                "role": recruiter.role,
+                "email": recruiter.email,
+                "profile_url": recruiter.profile_url,
+            }
+
+    candidate_data = {
+        "full_name": candidate.full_name,
+        "email": candidate.email,
+        "phone": candidate.phone,
+        "location": candidate.location,
+        "experience_years": candidate.experience_years,
+        "skills": candidate.skills,
+        "master_resume": candidate.master_resume,
+    }
+
+    # Get jobs directly from database
+    db_jobs = db.query(Job).order_by(Job.id.desc()).all()
+
+    saved_applications = 0
+    submitted_applications = 0
+    skipped_applications = 0
+    saved_outreach = 0
+    errors = []
+    results = []
+
+    for job in db_jobs:
+
+        job_data = {
+            "title": job.title,
+            "company": job.company,
+            "location": job.location,
+            "source": job.source,
+            "job_url": job.job_url,
+            "required_skills": job.required_skills,
+            "description": job.description,
+            "work_mode": job.work_mode,
+            "salary": job.salary,
+            "posted_date": job.posted_date,
+        }
+
+        analysis = analyze_job(job_data)
+
+        match = analyze_match(
+            candidate.skills or "",
+            job.required_skills or ""
+        )
+
+        resume = generate_resume_content(
+            candidate_data,
+            job_data
+        )
+
+        outreach_data = None
+
+        if recruiter:
+            recruiter_data_for_email = {
+                "name": recruiter.name,
+                "company": recruiter.company,
+                "role": recruiter.role,
+                "email": recruiter.email,
+            }
+
+            outreach_data = generate_outreach_email(
+                candidate_data,
+                recruiter_data_for_email,
+                job_data
+            )
+
+        # Update match score in DB
+        job.match_score = match["match_score"]
+
+        result_item = {
+            "job": job_data,
+            "job_id": job.id,
+            "analysis": analysis,
+            "match": match,
+            "resume": resume,
+            "outreach": outreach_data,
+        }
+
+        # Only process sufficiently matched jobs
+        if match["match_score"] < 70:
+            skipped_applications += 1
+            results.append(result_item)
+            continue
+
+        # Check duplicate application
+        existing_application = db.query(Application).filter(
+            Application.candidate_id == candidate.id,
+            Application.job_id == job.id
+        ).first()
+
+        if existing_application:
+            skipped_applications += 1
+
+        else:
+            try:
+                # Real browser automation against our demo portal
+                submission_url = apply_to_mock_portal(
+                    job.id,
+                    candidate_data
+                )
+
+                application = Application(
+                    candidate_id=candidate.id,
+                    job_id=job.id,
+                    status="applied",
+                    applied_date=datetime.now().strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    ),
+                    notes=(
+                        "Automatically submitted by autonomous agent. "
+                        f"Submission URL: {submission_url}"
+                    )
+                )
+
+                db.add(application)
+
+                saved_applications += 1
+                submitted_applications += 1
+
+                result_item["application_status"] = "applied"
+                result_item["submission_url"] = submission_url
+
+            except Exception as e:
+                errors.append({
+                    "job_id": job.id,
+                    "job_title": job.title,
+                    "error": str(e)
+                })
+
+                result_item["application_status"] = "failed"
+
+        # Save recruiter outreach
+        if recruiter and outreach_data:
+
+            existing_outreach = db.query(Outreach).filter(
+                Outreach.candidate_id == candidate.id,
+                Outreach.recruiter_id == recruiter.id,
+                Outreach.job_id == job.id
+            ).first()
+
+            if not existing_outreach:
+
+                outreach = Outreach(
+                    candidate_id=candidate.id,
+                    recruiter_id=recruiter.id,
+                    job_id=job.id,
+                    subject=outreach_data["subject"],
+                    body=outreach_data["body"],
+                    status="draft"
+                )
+
+                db.add(outreach)
+                saved_outreach += 1
+
+        results.append(result_item)
+
+    db.commit()
+
+    return {
+        "message": "Autonomous agent completed",
+        "candidate": candidate.full_name,
+        "jobs_processed": len(db_jobs),
+        "applications_saved": saved_applications,
+        "applications_submitted": submitted_applications,
+        "applications_skipped": skipped_applications,
+        "outreach_saved": saved_outreach,
+        "errors": errors,
+        "results": results
+    }
+    
+@app.post("/agent/apply-matched/{job_id}")
+def agent_apply_matched_job(
+    job_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db)
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id
+    ).first()
+
+    if not candidate:
+        return {"error": "Candidate not found"}
+
+    job = db.query(Job).filter(
+        Job.id == job_id
+    ).first()
+
+    if not job:
+        return {"error": "Job not found"}
+
+    # Prevent duplicate application
+    existing_application = db.query(Application).filter(
+        Application.candidate_id == candidate_id,
+        Application.job_id == job_id
+    ).first()
+
+    if existing_application:
+        return {
+            "message": "Application already exists",
+            "application_id": existing_application.id,
+            "status": existing_application.status
+        }
+
+    candidate_data = {
+        "full_name": candidate.full_name,
+        "email": candidate.email,
+        "phone": candidate.phone,
+        "experience_years": candidate.experience_years,
+        "skills": candidate.skills,
+    }
+
+    try:
+        submission_url = apply_to_mock_portal(
+            job_id,
+            candidate_data
+        )
+    except Exception as e:
+        return {
+            "error": "Application automation failed",
+            "details": str(e)
+        }
+
+    application = Application(
+        candidate_id=candidate_id,
+        job_id=job_id,
+        status="applied",
+        applied_date=datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
+        notes=f"Submitted through mock portal: {submission_url}"
+    )
+
+    db.add(application)
+    db.commit()
+    db.refresh(application)
+
+    return {
+        "message": "Agent application completed",
+        "application_id": application.id,
+        "candidate_id": candidate_id,
+        "job_id": job_id,
+        "status": application.status,
+        "submission_url": submission_url
     }
