@@ -250,7 +250,7 @@ export default function Home() {
 
     const response = await fetch(
 
-      "http://127.0.0.1:8000/agent/run?candidate_id=3&recruiter_id=1",
+      `http://127.0.0.1:8000/agent/run?candidate_id=${candidate?.id ?? 3}&recruiter_id=1`,
 
       {
 
@@ -520,6 +520,39 @@ export default function Home() {
 
 
 
+
+        {agentResult && (
+          <section className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold">Agent Run Summary</h2>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-4">
+              <div className="rounded-lg bg-slate-50 p-4">
+                <p className="text-sm text-gray-500">Jobs Processed</p>
+                <p className="mt-1 text-2xl font-bold">{agentResult.jobs_processed ?? 0}</p>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-4">
+                <p className="text-sm text-gray-500">Applications Submitted</p>
+                <p className="mt-1 text-2xl font-bold">{agentResult.applications_submitted ?? 0}</p>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-4">
+                <p className="text-sm text-gray-500">Applications Skipped</p>
+                <p className="mt-1 text-2xl font-bold">{agentResult.applications_skipped ?? 0}</p>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-4">
+                <p className="text-sm text-gray-500">Outreach Saved</p>
+                <p className="mt-1 text-2xl font-bold">{agentResult.outreach_saved ?? 0}</p>
+              </div>
+            </div>
+
+            {agentResult.errors?.length > 0 && (
+              <div className="mt-5 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+                {agentResult.errors.map((error: any, index: number) => (
+                  <p key={index}>Job {error.job_id}: {error.error}</p>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Candidate Profile */}
 
