@@ -36,7 +36,9 @@ export default function Home() {
 
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -48,11 +50,16 @@ export default function Home() {
       fetch("http://127.0.0.1:8000/jobs").then((res) =>
         res.json()
       ),
+      fetch("http://127.0.0.1:8000/applications").then((res) =>
+        res.json()
+      ),
     ])
-      .then(([candidateData, jobsData]) => {
+    
+      .then(([candidateData, jobsData, applicationsData]) => {
         setCandidate(candidateData);
         setJobs(jobsData);
-        setLoading(false);
+        setApplications(applicationsData);
+         setLoading(false);
       })
       .catch(() => {
         setLoading(false);
@@ -154,7 +161,7 @@ export default function Home() {
 
   if (!candidate) {
     return (
-      <main className="min-h-screen bg-gray-50 p-10">
+      <main className="min-h-screen bg-slate-50 p-10 text-slate-900">
         <p className="text-red-600">
           Could not load candidate data.
         </p>
@@ -163,16 +170,18 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 p-10">
+    <main className="min-h-screen bg-slate-50 p-6 text-slate-900 md:p-10">
       <div className="mx-auto max-w-6xl">
 
-        <h1 className="text-3xl font-bold">
-          Autonomous Job Automation Agent
-        </h1>
+        <div className="mb-8 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            Autonomous Job Automation Agent
+          </h1>
 
-        <p className="mt-2 text-gray-600">
-          Candidate Dashboard
-        </p>
+          <p className="mt-2 text-sm text-slate-500">
+            Candidate Dashboard
+          </p>
+        </div>
 
         {/* Candidate Profile */}
 
@@ -428,6 +437,27 @@ export default function Home() {
 
                     </div>
 
+                    {job.job_url && (
+                        <button
+                          onClick={async () => {
+                            await fetch(
+                              "http://127.0.0.1:8000/automation/open-job",
+                              {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                  job_url: job.job_url,
+                                }),
+                              }
+                            );
+                          }}
+                          className="rounded-lg bg-black px-4 py-2 font-medium text-white"
+                        >
+                          Open Application
+                        </button>
+                      )}
 
                     <button
                       onClick={async () => {
@@ -514,7 +544,49 @@ export default function Home() {
           )}
 
         </section>
+          <section className="mt-8">
+  <h2 className="text-2xl font-semibold">
+    Applications
+  </h2>
 
+  <p className="mt-2 text-gray-600">
+    Track your job applications
+  </p>
+
+  <div className="mt-6 grid gap-4 md:grid-cols-3">
+    <div className="rounded-xl bg-white p-5 shadow">
+      <p className="text-sm text-gray-500">
+        Total Applications
+      </p>
+      <p className="mt-2 text-3xl font-bold">
+        {applications.length}
+      </p>
+    </div>
+
+    <div className="rounded-xl bg-white p-5 shadow">
+      <p className="text-sm text-gray-500">
+        Applied
+      </p>
+
+      <p className="mt-2 text-3xl font-bold">
+        {applications.filter(
+          (application) => application.status === "applied"
+        ).length}
+      </p>
+    </div>
+
+    <div className="rounded-xl bg-white p-5 shadow">
+      <p className="text-sm text-gray-500">
+        Interviews
+      </p>
+      <p className="mt-2 text-3xl font-bold">
+        {applications.filter(
+          (application) => application.status === "interview"
+        ).length}
+      </p>
+    </div>
+  </div>
+</section>
       </div>
     </main>
   );

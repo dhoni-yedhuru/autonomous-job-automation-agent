@@ -13,6 +13,8 @@ from job_analysis import analyze_job
 from resume_generator import generate_resume_content
 from latex_resume import generate_latex_resume
 
+from application_automation import open_application_page
+
 from fastapi.responses import Response
 
 app = FastAPI(title="Autonomous Job Automation Agent")
@@ -84,6 +86,18 @@ def get_candidate(
         return {"error": "Candidate not found"}
 
     return candidate
+
+class OpenJobRequest(BaseModel):
+    job_url: str
+
+
+@app.post("/automation/open-job")
+def open_job_for_application(request: OpenJobRequest):
+    open_application_page(request.job_url)
+
+    return {
+        "message": "Job application page opened successfully."
+    }
 
 @app.put("/candidates/{candidate_id}")
 def update_candidate(
